@@ -15,6 +15,8 @@ const {
 
 /* eslint-env jest */
 
+jest.useFakeTimers();
+
 describe('.gotoURL', () => {
   /** @type {LH.Gatherer.FRTransitionalDriver} */
   let driver;

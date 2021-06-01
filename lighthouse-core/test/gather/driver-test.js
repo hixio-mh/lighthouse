@@ -16,6 +16,9 @@ const {
 
 /* eslint-env jest */
 
+jest.useFakeTimers();
+
+
 /**
  * @typedef DriverMockMethods
  * @property {Driver['evaluate']} evaluate redefined to remove "private" designation

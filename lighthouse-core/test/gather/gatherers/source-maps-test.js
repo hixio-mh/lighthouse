@@ -7,6 +7,8 @@
 
 /* eslint-env jest */
 
+jest.useFakeTimers();
+
 const Driver = require('../../../gather/driver.js');
 const Connection = require('../../../gather/connections/connection.js');
 const SourceMaps = require('../../../gather/gatherers/source-maps.js');

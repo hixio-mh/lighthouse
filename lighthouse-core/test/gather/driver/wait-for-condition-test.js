@@ -15,6 +15,8 @@ const {
 
 /* eslint-env jest */
 
+jest.useFakeTimers();
+
 function createMockWaitForFn() {
   const {promise, resolve, reject} = createDecomposedPromise();
 

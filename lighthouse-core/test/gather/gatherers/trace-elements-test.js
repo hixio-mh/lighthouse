@@ -16,6 +16,8 @@ const {flushAllTimersAndMicrotasks} = require('../../test-utils.js');
 
 const animationTrace = require('../../fixtures/traces/animation.json');
 
+jest.useFakeTimers();
+
 function makeLayoutShiftTraceEvent(score, impactedNodes, had_recent_input = false) {
   return {
     name: 'LayoutShift',

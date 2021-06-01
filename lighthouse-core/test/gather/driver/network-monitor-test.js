@@ -12,6 +12,8 @@ const {createMockSendCommandFn: createMockSendCommandFn_} = require('../../test-
 
 /* eslint-env jest */
 
+jest.useFakeTimers();
+
 // This can be removed when FR becomes the default.
 const createMockSendCommandFn = createMockSendCommandFn_.bind(null, {useSessionId: false});
 

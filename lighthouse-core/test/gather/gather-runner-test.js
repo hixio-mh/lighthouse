@@ -111,6 +111,7 @@ function resetDefaultMockResponses() {
 }
 
 beforeEach(() => {
+  jest.useFakeTimers();
   // @ts-expect-error - connectionStub has a mocked version of sendCommand implemented in each test
   connectionStub = new Connection();
   // @ts-expect-error
