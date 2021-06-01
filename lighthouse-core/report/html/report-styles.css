@@ -40,6 +40,7 @@
   --color-blue-A700: #2962FF;
   --color-cyan-500: #00BCD4;
   --color-gray-100: #F5F5F5;
+  --color-gray-300: #CFCFCF;
   --color-gray-200: #E0E0E0;
   --color-gray-400: #BDBDBD;
   --color-gray-50: #FAFAFA;
@@ -171,6 +172,7 @@
   .lh-vars.dark {
     /* Pallete */
     --color-gray-200: var(--color-gray-800);
+    --color-gray-300: #616161;
     --color-gray-400: var(--color-gray-600);
     --color-gray-700: var(--color-gray-400);
     --color-gray-50: #757575;
@@ -397,11 +399,7 @@
   display: flex;
   align-items: center;
   padding: 10px 12px;
-  opacity: 0.7;
   cursor: pointer;
-}
-.report-icon:hover {
-  opacity: 1;
 }
 .report-icon[disabled] {
   opacity: 0.3;
@@ -414,6 +412,10 @@
   background-repeat: no-repeat;
   width: var(--report-icon-size);
   height: var(--report-icon-size);
+  opacity: 0.7;
+}
+.report-icon:hover::before {
+  opacity: 1;
 }
 .dark .report-icon::before {
   filter: invert(1);
@@ -437,6 +439,10 @@
   background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="black"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M3 5v14h19V5H3zm2 2h15v4H5V7zm0 10v-4h4v4H5zm6 0v-4h9v4h-9z"/></svg>');
 }
 
+.lh-buttons {
+  display: flex;
+  flex-wrap: wrap;
+}
 .lh-button {
   margin: 10px;
   height: 30px;
@@ -520,6 +526,16 @@
 .lh-audit__stackpack {
   color: var(--report-text-color-secondary);
 }
+.lh-audit__adorn {
+  border: 1px solid slategray;
+  border-radius: 3px;
+  margin: 0 3px;
+  padding: 0 2px;
+  line-height: 1.1;
+  display: inline-block;
+  font-size: 90%;
+}
+
 .lh-category-header__description  {
   font-size: var(--report-font-size);
   text-align: center;
@@ -566,6 +582,57 @@
 .lh-audit--load-opportunity .lh-audit__header {
   display: block;
 }
+
+
+.lh-metricfilter {
+  text-align: right;
+  margin-top: var(--default-padding);
+}
+
+.lh-metricfilter__radio {
+  position: absolute;
+  left: -9999px;
+}
+.lh-metricfilter input[type='radio']:focus-visible + label {
+  outline: -webkit-focus-ring-color auto 1px;
+}
+
+.lh-metricfilter__label {
+  border: solid 1px var(--color-gray-400);
+  align-items: center;
+  justify-content: center;
+  padding: 2px 5px;
+  width: 50%;
+  height: 28px;
+  cursor: pointer;
+  font-size: 90%;
+}
+
+.lh-metricfilter__label:first-of-type {
+  border-top-left-radius: 5px;
+  border-bottom-left-radius: 5px;
+  margin-left: 5px;
+}
+.lh-metricfilter__label:last-of-type {
+  border-top-right-radius: 5px;
+  border-bottom-right-radius: 5px;
+}
+
+.lh-metricfilter__label--active {
+  background: var(--color-blue-A700);
+  color: var(--color-white);
+}
+/* Give the 'All' choice a more muted display */
+.lh-metricfilter__label--active[for="metric-All"] {
+  background-color: var(--color-blue-200) !important;
+  color: black !important;
+}
+
+/* If audits are filtered, hide the itemcount for Passed Audits… */
+.lh-category--filtered .lh-audit-group .lh-audit-group__itemcount {
+  display: none;
+}
+
 
 .lh-audit__header:hover {
   background-color: var(--color-hover);

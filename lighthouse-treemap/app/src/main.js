@@ -5,14 +5,17 @@
  */
 'use strict';
 
+/** @typedef {import('../../../lighthouse-core/lib/i18n/locales').LhlMessages} LhlMessages */
+
 /* eslint-env browser */
 
-/* globals webtreemap TreemapUtil Tabulator Cell Row */
+/* globals I18n webtreemap strings TreemapUtil TextEncoding Tabulator Cell Row DragAndDrop Logger GithubApi */
 
-const UNUSED_BYTES_IGNORE_THRESHOLD = 20 * 1024;
-const UNUSED_BYTES_IGNORE_BUNDLE_SOURCE_RATIO = 0.5;
 const DUPLICATED_MODULES_IGNORE_THRESHOLD = 1024;
 const DUPLICATED_MODULES_IGNORE_ROOT_RATIO = 0.01;
+
+const logEl = document.querySelector('#lh-log');
+const logger = new Logger(logEl);
 
 /** @type {TreemapViewer} */
 let treemapViewer;
@@ -33,18 +36,16 @@ class TreemapViewer {
    * @param {HTMLElement} el
    */
   constructor(options, el) {
-    const treemapDebugData = /** @type {LH.Audit.Details.DebugData} */ (
-      options.lhr.audits['script-treemap-data'].details);
-    if (!treemapDebugData || !treemapDebugData.treemapData) {
+    this.abortController = new AbortController();
+
+    const scriptTreemapData = options.lhr.audits['script-treemap-data'].details;
+    if (!scriptTreemapData || scriptTreemapData.type !== 'treemap-data') {
       throw new Error('missing script-treemap-data');
     }
 
-    /** @type {LH.Treemap.Node[]} */
-    const scriptNodes = treemapDebugData.treemapData;
-
     /** @type {{[group: string]: LH.Treemap.Node[]}} */
     this.depthOneNodesByGroup = {
-      scripts: scriptNodes,
+      scripts: scriptTreemapData.nodes,
     };
 
     /**
@@ -66,7 +67,6 @@ class TreemapViewer {
     this.documentUrl = options.lhr.requestedUrl;
     this.el = el;
     this.getHueForD1NodeName = TreemapUtil.stableHasher(TreemapUtil.COLOR_HUES);
-    this.getHueForModuleNodeName = TreemapUtil.stableHasher(TreemapUtil.COLOR_HUES);
 
     /* eslint-disable no-unused-expressions */
     /** @type {LH.Treemap.Node} */
@@ -79,11 +79,14 @@ class TreemapViewer {
     this.viewModes;
     /** @type {RenderState=} */
     this.previousRenderState;
+    /** @type {WeakMap<HTMLElement, NodeWithElement>} */
+    this.tableRowToNodeMap = new WeakMap();
     /** @type {WebTreeMap} */
     this.treemap;
     /*  eslint-enable no-unused-expressions */
 
     this.createHeader();
+    this.toggleTable(window.innerWidth >= 600);
     this.initListeners();
     this.setSelector({type: 'group', value: 'scripts'});
     this.render();
@@ -94,13 +97,7 @@ class TreemapViewer {
     urlEl.textContent = this.documentUrl;
     urlEl.href = this.documentUrl;
 
-    const bytes = this.wrapNodesInNewRootNode(this.depthOneNodesByGroup.scripts).resourceBytes;
-    TreemapUtil.find('.lh-header--size').textContent = TreemapUtil.formatBytes(bytes);
-
     this.createBundleSelector();
-
-    const toggleTableBtn = TreemapUtil.find('.lh-button--toggle-table');
-    toggleTableBtn.addEventListener('click', () => treemapViewer.toggleTable());
   }
 
   createBundleSelector() {
@@ -122,7 +119,10 @@ class TreemapViewer {
     }
 
     for (const [group, depthOneNodes] of Object.entries(this.depthOneNodesByGroup)) {
-      makeOption({type: 'group', value: group}, `All ${group}`);
+      const allLabel = {
+        scripts: TreemapUtil.i18n.strings.allScriptsDropdownLabel,
+      }[group] || `All ${group}`;
+      makeOption({type: 'group', value: group}, allLabel);
       for (const depthOneNode of depthOneNodes) {
         // Only add bundles.
         if (!depthOneNode.children) continue;
@@ -146,6 +146,7 @@ class TreemapViewer {
   }
 
   initListeners() {
+    const options = {signal: this.abortController.signal};
     const treemapEl = TreemapUtil.find('.lh-treemap');
 
     const resizeObserver = new ResizeObserver(() => this.resize());
@@ -157,7 +158,17 @@ class TreemapViewer {
       if (!nodeEl) return;
 
       this.updateColors();
-    });
+    }, options);
+
+    treemapEl.addEventListener('keyup', (e) => {
+      if (!(e instanceof KeyboardEvent)) return;
+
+      if (e.key === 'Enter') this.updateColors();
+
+      if (e.key === 'Escape' && this.treemap) {
+        this.treemap.zoom([]); // zoom out to root
+      }
+    }, options);
 
     treemapEl.addEventListener('mouseover', (e) => {
       if (!(e.target instanceof HTMLElement)) return;
@@ -165,7 +176,7 @@ class TreemapViewer {
       if (!nodeEl) return;
 
       nodeEl.classList.add('webtreemap-node--hover');
-    });
+    }, options);
 
     treemapEl.addEventListener('mouseout', (e) => {
       if (!(e.target instanceof HTMLElement)) return;
@@ -173,7 +184,28 @@ class TreemapViewer {
       if (!nodeEl) return;
 
       nodeEl.classList.remove('webtreemap-node--hover');
-    });
+    }, options);
+
+    TreemapUtil.find('.lh-table').addEventListener('mouseover', e => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const el = target.closest('.tabulator-row');
+      if (!(el instanceof HTMLElement)) return;
+
+      const node = this.tableRowToNodeMap.get(el);
+      if (!node || !node.dom) return;
+
+      node.dom.classList.add('webtreemap-node--hover');
+      el.addEventListener('mouseout', () => {
+        for (const hoverEl of treemapEl.querySelectorAll('.webtreemap-node--hover')) {
+          hoverEl.classList.remove('webtreemap-node--hover');
+        }
+      }, {once: true});
+    }, options);
+
+    const toggleTableBtn = TreemapUtil.find('.lh-button--toggle-table');
+    toggleTableBtn.addEventListener('click', () => treemapViewer.toggleTable(), options);
   }
 
   /**
@@ -198,29 +230,10 @@ class TreemapViewer {
     function createUnusedBytesViewMode(root) {
       if (root.unusedBytes === undefined) return;
 
-      /** @type {LH.Treemap.NodePath[]} */
-      const highlightNodePaths = [];
-      for (const d1Node of root.children || []) {
-        // Only highlight leaf nodes if entire node (ie a JS bundle) has greater than a certain
-        // number of unused bytes.
-        if (!d1Node.unusedBytes || d1Node.unusedBytes < UNUSED_BYTES_IGNORE_THRESHOLD) continue;
-
-        TreemapUtil.walk(d1Node, (node, path) => {
-          // Only highlight leaf nodes of a certain ratio of unused bytes.
-          if (node.children) return;
-          if (!node.unusedBytes || !node.resourceBytes) return;
-          if (node.unusedBytes / node.resourceBytes < UNUSED_BYTES_IGNORE_BUNDLE_SOURCE_RATIO) {
-            return;
-          }
-
-          highlightNodePaths.push([root.name, ...path]);
-        });
-      }
       return {
         id: 'unused-bytes',
-        label: 'Unused Bytes',
-        subLabel: TreemapUtil.formatBytes(root.unusedBytes),
-        highlightNodePaths,
+        label: TreemapUtil.i18n.strings.unusedBytesLabel,
+        subLabel: TreemapUtil.i18n.formatBytesWithBestUnit(root.unusedBytes),
         enabled: true,
       };
     }
@@ -230,7 +243,7 @@ class TreemapViewer {
      * @return {LH.Treemap.ViewMode|undefined}
      */
     const createDuplicateModulesViewMode = (root) => {
-      /** @type {Map<string, Array<{node: LH.Treemap.Node, path: string[]}>>} */
+      /** @type {Map<string, Array<{node: LH.Treemap.Node, path: LH.Treemap.NodePath}>>} */
       const moduleNameToNodes = new Map();
       for (const d1Node of root.children || []) {
         TreemapUtil.walk(d1Node, (node, path) => {
@@ -243,11 +256,12 @@ class TreemapViewer {
         });
       }
 
+      const getHueForModuleNodeName = TreemapUtil.stableHasher(TreemapUtil.COLOR_HUES);
       let potentialByteSavings = 0;
 
-      /** @type {LH.Treemap.NodePath[]} */
-      const highlightNodePaths = [];
-      for (const nodesWithSameModuleName of moduleNameToNodes.values()) {
+      /** @type {LH.Treemap.Highlight[]} */
+      const highlights = [];
+      for (const [moduleName, nodesWithSameModuleName] of moduleNameToNodes.entries()) {
         if (nodesWithSameModuleName.length === 1) continue;
 
         const bytes = [];
@@ -262,22 +276,25 @@ class TreemapViewer {
         if (duplicatedBytes < DUPLICATED_MODULES_IGNORE_THRESHOLD) continue;
 
         for (const {path} of nodesWithSameModuleName) {
-          highlightNodePaths.push([root.name, ...path]);
+          highlights.push({
+            path: [root.name, ...path],
+            color: this.getColorFromHue(getHueForModuleNodeName(moduleName)),
+          });
         }
         potentialByteSavings += duplicatedBytes;
       }
 
       let enabled = true;
-      if (highlightNodePaths.length === 0) enabled = false;
+      if (highlights.length === 0) enabled = false;
       if (potentialByteSavings / root.resourceBytes < DUPLICATED_MODULES_IGNORE_ROOT_RATIO) {
         enabled = false;
       }
 
       return {
         id: 'duplicate-modules',
-        label: 'Duplicate Modules',
-        subLabel: enabled ? TreemapUtil.formatBytes(potentialByteSavings) : 'N/A',
-        highlightNodePaths,
+        label: TreemapUtil.i18n.strings.duplicateModulesLabel,
+        subLabel: enabled ? TreemapUtil.i18n.formatBytesWithBestUnit(potentialByteSavings) : 'N/A',
+        highlights,
         enabled,
       };
     };
@@ -287,8 +304,8 @@ class TreemapViewer {
 
     viewModes.push({
       id: 'all',
-      label: `All`,
-      subLabel: TreemapUtil.formatBytes(this.currentTreemapRoot.resourceBytes),
+      label: TreemapUtil.i18n.strings.allLabel,
+      subLabel: TreemapUtil.i18n.formatBytesWithBestUnit(this.currentTreemapRoot.resourceBytes),
       enabled: true,
     });
 
@@ -357,7 +374,7 @@ class TreemapViewer {
       renderViewModeButtons(this.viewModes);
 
       TreemapUtil.walk(this.currentTreemapRoot, node => {
-        // @ts-ignore: webtreemap will store `dom` on the data to speed up operations.
+        // webtreemap will store `dom` on the data to speed up operations.
         // However, when we change the underlying data representation, we need to delete
         // all the cached DOM elements. Otherwise, the rendering will be incorrect when,
         // for example, switching between "All JavaScript" and a specific bundle.
@@ -382,7 +399,7 @@ class TreemapViewer {
 
     if (rootChanged || viewChanged) {
       this.updateColors();
-      applyActiveClass(this.currentViewMode.id);
+      applyActiveClass(this.currentViewMode.id, this.el);
     }
 
     this.previousRenderState = {
@@ -395,7 +412,7 @@ class TreemapViewer {
     const tableEl = TreemapUtil.find('.lh-table');
     tableEl.innerHTML = '';
 
-    /** @type {Array<{name: string, bundleNode?: LH.Treemap.Node, resourceBytes: number, unusedBytes?: number}>} */
+    /** @type {Array<{node: NodeWithElement, name: string, bundleNode?: LH.Treemap.Node, resourceBytes: number, unusedBytes?: number}>} */
     const data = [];
     TreemapUtil.walk(this.currentTreemapRoot, (node, path) => {
       if (node.children) return;
@@ -423,12 +440,27 @@ class TreemapViewer {
       }
 
       data.push({
+        node,
         name,
         bundleNode,
         resourceBytes: node.resourceBytes,
         unusedBytes: node.unusedBytes,
       });
     });
+
+    /** @param {'resourceBytes'|'unusedBytes'} field */
+    const makeBytesTooltip = (field) => {
+      /** @param {Tabulator.CellComponent} cell */
+      const fn = (cell) => {
+        /** @type {typeof data[number]} */
+        const dataRow = cell.getRow().getData();
+        const value = dataRow[field];
+        if (value === undefined) return '';
+
+        return TreemapUtil.i18n.formatBytes(value);
+      };
+      return fn;
+    };
 
     /** @param {Tabulator.CellComponent} cell */
     const makeNameTooltip = (cell) => {
@@ -445,8 +477,8 @@ class TreemapViewer {
       const dataRow = cell.getRow().getData();
       if (!dataRow.unusedBytes) return '';
 
-      const percent = Math.floor(100 * dataRow.unusedBytes / dataRow.resourceBytes);
-      return `${percent}% bytes unused`;
+      const percent = dataRow.unusedBytes / dataRow.resourceBytes;
+      return `${TreemapUtil.i18n.formatPercent(percent)} bytes unused`;
     };
 
     const gridEl = document.createElement('div');
@@ -455,6 +487,7 @@ class TreemapViewer {
     const children = this.currentTreemapRoot.children || [];
     const maxSize = Math.max(...children.map(node => node.resourceBytes));
 
+    this.tableRowToNodeMap = new WeakMap();
     this.table = new Tabulator(gridEl, {
       data,
       height: '100%',
@@ -466,19 +499,21 @@ class TreemapViewer {
         {column: 'resourceBytes', dir: 'desc'},
       ],
       columns: [
-        {title: 'Name', field: 'name', widthGrow: 5, tooltip: makeNameTooltip},
-        {title: 'Size', field: 'resourceBytes', headerSortStartingDir: 'desc', formatter: cell => {
+        // eslint-disable-next-line max-len
+        {title: TreemapUtil.i18n.strings.tableColumnName, field: 'name', widthGrow: 5, tooltip: makeNameTooltip},
+        // eslint-disable-next-line max-len
+        {title: TreemapUtil.i18n.strings.resourceBytesLabel, field: 'resourceBytes', headerSortStartingDir: 'desc', tooltip: makeBytesTooltip('resourceBytes'), formatter: cell => {
           const value = cell.getValue();
-          return TreemapUtil.formatBytes(value);
+          return TreemapUtil.i18n.formatBytesWithBestUnit(value);
         }},
         // eslint-disable-next-line max-len
-        {title: 'Unused', field: 'unusedBytes', widthGrow: 1, sorterParams: {alignEmptyValues: 'bottom'}, headerSortStartingDir: 'desc', formatter: cell => {
+        {title: TreemapUtil.i18n.strings.unusedBytesLabel, field: 'unusedBytes', widthGrow: 1, sorterParams: {alignEmptyValues: 'bottom'}, headerSortStartingDir: 'desc', tooltip: makeBytesTooltip('unusedBytes'), formatter: cell => {
           const value = cell.getValue();
           if (value === undefined) return '';
-          return TreemapUtil.formatBytes(value);
+          return TreemapUtil.i18n.formatBytesWithBestUnit(value);
         }},
         // eslint-disable-next-line max-len
-        {title: 'Coverage', widthGrow: 3, headerSort: false, tooltip: makeCoverageTooltip, formatter: cell => {
+        {title: TreemapUtil.i18n.strings.coverageColumnName, widthGrow: 3, headerSort: false, tooltip: makeCoverageTooltip, formatter: cell => {
           /** @type {typeof data[number]} */
           const dataRow = cell.getRow().getData();
 
@@ -495,14 +530,20 @@ class TreemapViewer {
           return el;
         }},
       ],
+      rowFormatter: (row) => {
+        this.tableRowToNodeMap.set(row.getElement(), row.getData().node);
+      },
     });
   }
 
-  toggleTable() {
+  /**
+   * @param {boolean=} show
+   */
+  toggleTable(show) {
     const mainEl = TreemapUtil.find('main');
-    mainEl.classList.toggle('lh-main--show-table');
+    mainEl.classList.toggle('lh-main--show-table', show);
     const buttonEl = TreemapUtil.find('.lh-button--toggle-table');
-    buttonEl.classList.toggle('lh-button--active');
+    buttonEl.classList.toggle('lh-button--active', show);
   }
 
   resize() {
@@ -519,18 +560,23 @@ class TreemapViewer {
    */
   makeCaption(node) {
     const partitionBy = this.currentViewMode.partitionBy || 'resourceBytes';
+    const partitionByStr = {
+      resourceBytes: TreemapUtil.i18n.strings.resourceBytesLabel,
+      unusedBytes: TreemapUtil.i18n.strings.unusedBytesLabel,
+    }[partitionBy];
     const bytes = node[partitionBy];
     const total = this.currentTreemapRoot[partitionBy];
 
     const parts = [
-      TreemapUtil.elide(node.name, 60),
+      TreemapUtil.elide(node.name || '', 60),
     ];
 
     if (bytes !== undefined && total !== undefined) {
-      let str = `${TreemapUtil.formatBytes(bytes)} (${Math.round(bytes / total * 100)}%)`;
+      const percentStr = TreemapUtil.i18n.formatPercent(bytes / total);
+      let str = `${TreemapUtil.i18n.formatBytesWithBestUnit(bytes)} (${percentStr})`;
       // Only add label for bytes on the root node.
       if (node === this.currentTreemapRoot) {
-        str = `${partitionBy}: ${str}`;
+        str = `${partitionByStr}: ${str}`;
       }
       parts.push(str);
     }
@@ -538,42 +584,44 @@ class TreemapViewer {
     return parts.join(' · ');
   }
 
+  /**
+   * @param {number} hue
+   */
+  getColorFromHue(hue) {
+    return TreemapUtil.hsl(hue, 60, 90);
+  }
+
   updateColors() {
     TreemapUtil.walk(this.currentTreemapRoot, node => {
-      let hue;
-      if (this.currentViewMode.id === 'duplicate-modules') {
-        hue = this.getHueForModuleNodeName(node.duplicatedNormalizedModuleName || '');
-      } else {
-        // Color a depth one node and all children the same color.
-        const depthOneNode = this.nodeToDepthOneNodeMap.get(node);
-        hue = this.getHueForD1NodeName(depthOneNode ? depthOneNode.name : node.name);
-      }
+      // Color a depth one node and all children the same color.
+      const depthOneNode = this.nodeToDepthOneNodeMap.get(node);
+      const hue = depthOneNode &&
+        this.getHueForD1NodeName(depthOneNode ? depthOneNode.name : node.name);
+      const depthOneNodeColor = hue !== undefined ? this.getColorFromHue(hue) : 'white';
 
-      let backgroundColor = 'white';
-      let color = 'black';
+      if (!node.dom) return;
 
-      if (hue !== undefined) {
-        const sat = 60;
-        const lig = 90;
-        backgroundColor = TreemapUtil.hsl(hue, sat, lig);
-        color = lig > 50 ? 'black' : 'white';
-      } else {
-        // Ran out of colors.
-      }
-
-      // A view can set nodes to highlight. If so, don't color anything else.
-      if (this.currentViewMode.highlightNodePaths) {
+      let backgroundColor;
+      if (this.currentViewMode.highlights) {
+        // A view can set nodes to highlight. If so, don't color anything else.
         const path = this.nodeToPathMap.get(node);
-        const shouldHighlight = path && this.currentViewMode.highlightNodePaths
-          .some(pathToHighlight => TreemapUtil.pathsAreEqual(pathToHighlight, path));
-        if (!shouldHighlight) backgroundColor = 'white';
+        const highlight = path && this.currentViewMode.highlights
+          .find(highlight => TreemapUtil.pathsAreEqual(path, highlight.path));
+        if (highlight) {
+          backgroundColor = highlight.color || depthOneNodeColor;
+        } else {
+          backgroundColor = 'white';
+        }
+        node.dom.style.backgroundColor = backgroundColor;
+        return;
       }
 
-      // @ts-ignore: webtreemap will add a dom node property to every node.
-      const dom = /** @type {HTMLElement?} */ (node.dom);
-      if (dom) {
-        dom.style.backgroundColor = backgroundColor;
-        dom.style.color = color;
+      node.dom.style.backgroundColor = depthOneNodeColor;
+
+      // Shade the element to communicate coverage.
+      if (this.currentViewMode.id === 'unused-bytes') {
+        const pctUsed = (1 - (node.unusedBytes || 0) / node.resourceBytes) * 100;
+        node.dom.style.setProperty('--pctUsed', `${pctUsed}%`);
       }
     });
   }
@@ -591,16 +639,19 @@ function renderViewModeButtons(viewModes) {
     if (!viewMode.enabled) viewModeEl.classList.add('view-mode--disabled');
     viewModeEl.id = `view-mode--${viewMode.id}`;
 
-    const labelEl = TreemapUtil.createChildOf(viewModeEl, 'label');
-    TreemapUtil.createChildOf(labelEl, 'span', 'view-mode__label').textContent = viewMode.label;
-    TreemapUtil.createChildOf(labelEl, 'span', 'view-mode__sublabel lh-text-dim').textContent =
-      ` (${viewMode.subLabel})`;
-
-    const inputEl = TreemapUtil.createChildOf(labelEl, 'input', 'view-mode__button', {
+    const inputEl = TreemapUtil.createChildOf(viewModeEl, 'input', 'view-mode__button', {
+      id: `view-mode--${viewMode.id}__label`,
       type: 'radio',
       name: 'view-mode',
       disabled: viewMode.enabled ? undefined : '',
     });
+
+    const labelEl = TreemapUtil.createChildOf(viewModeEl, 'label', undefined, {
+      for: inputEl.id,
+    });
+    TreemapUtil.createChildOf(labelEl, 'span', 'view-mode__label').textContent = viewMode.label;
+    TreemapUtil.createChildOf(labelEl, 'span', 'view-mode__sublabel lh-text-dim').textContent =
+      ` (${viewMode.subLabel})`;
 
     inputEl.addEventListener('click', () => {
       treemapViewer.setViewMode(viewMode);
@@ -615,14 +666,16 @@ function renderViewModeButtons(viewModes) {
 
 /**
  * @param {string} currentViewModeId
+ * @param {HTMLElement} el
  */
-function applyActiveClass(currentViewModeId) {
+function applyActiveClass(currentViewModeId, el) {
   const viewModesEl = TreemapUtil.find('.lh-modes');
   for (const viewModeEl of viewModesEl.querySelectorAll('.view-mode')) {
     if (!(viewModeEl instanceof HTMLElement)) continue;
 
-    viewModeEl.classList
-      .toggle('view-mode--active', viewModeEl.id === `view-mode--${currentViewModeId}`);
+    const isMatch = viewModeEl.id === `view-mode--${currentViewModeId}`;
+    viewModeEl.classList.toggle('view-mode--active', isMatch);
+    el.classList.toggle(`lh-treemap--${viewModeEl.id}`, isMatch);
   }
 }
 
@@ -631,57 +684,258 @@ function applyActiveClass(currentViewModeId) {
  * @param {LH.Treemap.Options} options
  */
 function injectOptions(options) {
-  if (window.__treemapOptions) return;
+  let scriptEl = document.querySelector('.lh-injectedoptions');
+  if (scriptEl) {
+    scriptEl.remove();
+  }
 
-  const scriptEl = document.createElement('script');
+  scriptEl = TreemapUtil.createChildOf(document.head, 'script', 'lh-injectedoptions');
   scriptEl.textContent = `
     window.__treemapOptions = ${JSON.stringify(options)};
   `;
-  document.head.append(scriptEl);
 }
 
 /**
- * @param {LH.Treemap.Options} options
+ * @param {LhlMessages} localeMessages
  */
-function init(options) {
-  treemapViewer = new TreemapViewer(options, TreemapUtil.find('div.lh-treemap'));
+function getStrings(localeMessages) {
+  const strings = /** @type {TreemapUtil['UIStrings']} */ ({});
 
-  injectOptions(options);
+  for (const varName of Object.keys(localeMessages)) {
+    const key = /** @type {keyof typeof TreemapUtil['UIStrings']} */ (varName);
+    strings[key] = localeMessages[varName].message;
+  }
 
-  // eslint-disable-next-line no-console
-  console.log('window.__treemapOptions', window.__treemapOptions);
+  return strings;
 }
 
-/**
- * @param {string} message
- */
-function showError(message) {
-  document.body.textContent = message;
+class LighthouseTreemap {
+  static get APP_URL() {
+    return `${location.origin}${location.pathname}`;
+  }
+
+  constructor() {
+    this._onPaste = this._onPaste.bind(this);
+    this._onFileLoad = this._onFileLoad.bind(this);
+
+    this._dragAndDrop = new DragAndDrop(this._onFileLoad);
+    this._github = new GithubApi();
+
+    document.addEventListener('paste', this._onPaste);
+
+    // Hidden file input to trigger manual file selector.
+    const fileInput = TreemapUtil.find('input#hidden-file-input', document);
+    fileInput.addEventListener('change', e => {
+      if (!e.target) {
+        return;
+      }
+
+      const inputTarget = /** @type {HTMLInputElement} */ (e.target);
+      if (inputTarget.files) {
+        this._dragAndDrop.readFile(inputTarget.files[0]).then(str => {
+          this._onFileLoad(str);
+        });
+      }
+      inputTarget.value = '';
+    });
+
+    // A click on the visual placeholder will trigger the hidden file input.
+    const placeholderTarget = TreemapUtil.find('.treemap-placeholder-inner', document);
+    placeholderTarget.addEventListener('click', e => {
+      const target = /** @type {?Element} */ (e.target);
+
+      if (target && target.localName !== 'input' && target.localName !== 'a') {
+        fileInput.click();
+      }
+    });
+  }
+
+  /**
+   * @param {LH.Treemap.Options} options
+   */
+  init(options) {
+    TreemapUtil.find('.treemap-placeholder').classList.add('hidden');
+    TreemapUtil.find('main').classList.remove('hidden');
+
+    const i18n = new I18n(options.lhr.configSettings.locale, {
+      // Set missing renderer strings to default (english) values.
+      ...TreemapUtil.UIStrings,
+      // `strings` is generated in build/build-treemap.js
+      ...getStrings(strings[options.lhr.configSettings.locale]),
+    });
+    TreemapUtil.i18n = i18n;
+
+    // Fill in all i18n data.
+    for (const node of document.querySelectorAll('[data-i18n]')) {
+      // These strings are guaranteed to (at least) have a default English string in TreemapUtil.UIStrings,
+      // so this cannot be undefined as long as `report-ui-features.data-i18n` test passes.
+      const i18nAttr = /** @type {keyof TreemapUtil['UIStrings']} */ (
+        node.getAttribute('data-i18n'));
+      node.textContent = TreemapUtil.i18n.strings[i18nAttr];
+    }
+
+    if (treemapViewer) {
+      TreemapUtil.find('.lh-treemap').innerHTML = '';
+      TreemapUtil.find('.lh-table').innerHTML = '';
+      treemapViewer.abortController.abort();
+    }
+    treemapViewer = new TreemapViewer(options, TreemapUtil.find('div.lh-treemap'));
+
+    injectOptions(options);
+
+    // eslint-disable-next-line no-console
+    console.log('window.__treemapOptions', window.__treemapOptions);
+  }
+
+  /**
+   * @param {any} json
+   * @return {LH.Treemap.Options}
+   */
+  convertToOptions(json) {
+    if (json && typeof json === 'object') {
+      if (json.audits) json = {lhr: json};
+      if (json.lhr && json.lhr.audits && typeof json.lhr.audits === 'object') return json;
+    }
+
+    throw new Error('unknown json');
+  }
+
+  /**
+   * Loads report json from gist URL, if valid. Updates page URL with gist id
+   * and loads from github.
+   * @param {string} urlStr gist URL
+   */
+  async loadFromGistUrl(urlStr) {
+    try {
+      const url = new URL(urlStr);
+
+      if (url.origin !== 'https://gist.github.com') {
+        logger.error('URL was not a gist');
+        return;
+      }
+
+      const match = url.pathname.match(/[a-f0-9]{5,}/);
+      if (match) {
+        const gistId = match[0];
+        history.pushState({}, '', `${LighthouseTreemap.APP_URL}?gist=${gistId}`);
+        const json = await this._github.getGistFileContentAsJson(gistId);
+        const options = this.convertToOptions(json);
+        this.init(options);
+      }
+    } catch (err) {
+      logger.error(err);
+    }
+  }
+
+  /**
+   * @param {string} str
+   */
+  _onFileLoad(str) {
+    let json;
+    let options;
+    try {
+      json = JSON.parse(str);
+      options = this.convertToOptions(json);
+    } catch (e) {
+      logger.error('Could not parse JSON file.');
+    }
+
+    if (options) this.init(options);
+  }
+
+  /**
+   * Enables pasting a JSON report or gist URL on the page.
+   * @param {ClipboardEvent} e
+   */
+  _onPaste(e) {
+    if (!e.clipboardData) return;
+    e.preventDefault();
+
+    // Try paste as gist URL.
+    try {
+      const url = new URL(e.clipboardData.getData('text'));
+      this.loadFromGistUrl(url.href);
+
+      if (window.ga) {
+        window.ga('send', 'event', 'report', 'paste-link');
+      }
+
+      return;
+    } catch (err) {
+      // noop
+    }
+
+    // Try paste as json content.
+    try {
+      const json = JSON.parse(e.clipboardData.getData('text'));
+      const options = this.convertToOptions(json);
+      this.init(options);
+
+      if (window.ga) {
+        window.ga('send', 'event', 'report', 'paste');
+      }
+
+      return;
+    } catch (err) {
+      // noop
+    }
+
+    logger.error('Pasted content did not have JSON or gist URL');
+  }
 }
 
 async function main() {
+  const app = new LighthouseTreemap();
+  const queryParams = new URLSearchParams(window.location.search);
+  const gzip = queryParams.get('gzip') === '1';
+  const hashParams = location.hash ?
+    JSON.parse(TextEncoding.fromBase64(location.hash.substr(1), {gzip})) :
+    {};
+  /** @type {Record<string, any>} */
+  const params = {
+    ...Object.fromEntries(queryParams.entries()),
+    ...hashParams,
+  };
+
   if (window.__treemapOptions) {
     // Prefer the hardcoded options from a saved HTML file above all.
-    init(window.__treemapOptions);
-  } else if (new URLSearchParams(window.location.search).has('debug')) {
+    app.init(window.__treemapOptions);
+  } else if ('debug' in params) {
     const response = await fetch('debug.json');
-    init(await response.json());
+    app.init(await response.json());
+  } else if (params.lhr) {
+    const options = {
+      lhr: params.lhr,
+    };
+    app.init(options);
+  } else if (params.gist) {
+    let json;
+    let options;
+    try {
+      json = await app._github.getGistFileContentAsJson(params.gist || '');
+      options = app.convertToOptions(json);
+    } catch (err) {
+      logger.log(err);
+    }
+    if (options) app.init(options);
   } else {
+    // TODO: remove for v8.
     window.addEventListener('message', e => {
       if (e.source !== self.opener) return;
 
       /** @type {LH.Treemap.Options} */
       const options = e.data;
       const {lhr} = options;
-      if (!lhr) return showError('Error: Invalid options');
+      if (!lhr) return logger.error('Error: Invalid options');
 
       const documentUrl = lhr.requestedUrl;
-      if (!documentUrl) return showError('Error: Invalid options');
+      if (!documentUrl) return logger.error('Error: Invalid options');
 
-      init(options);
+      app.init(options);
     });
   }
 
+  // TODO: remove for v8.
   // If the page was opened as a popup, tell the opening window we're ready.
   if (self.opener && !self.opener.closed) {
     self.opener.postMessage({opened: true}, '*');

@@ -63,8 +63,8 @@ describe('Fraggle Rock Config', () => {
   });
 
   it('should throw on invalid artifact definitions', () => {
-    const configJson = {artifacts: [{id: 'ImageElements', gatherer: 'image-elements'}]};
-    expect(() => initializeConfig(configJson, {gatherMode})).toThrow(/ImageElements gatherer/);
+    const configJson = {artifacts: [{id: 'ScriptElements', gatherer: 'script-elements'}]};
+    expect(() => initializeConfig(configJson, {gatherMode})).toThrow(/ScriptElements gatherer/);
   });
 
   it('should resolve navigation definitions', () => {

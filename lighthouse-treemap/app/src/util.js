@@ -9,14 +9,12 @@
 
 /** @typedef {HTMLElementTagNameMap & {[id: string]: HTMLElement}} HTMLElementByTagName */
 /** @template {string} T @typedef {import('typed-query-selector/parser').ParseSelector<T, Element>} ParseSelector */
-
-const KiB = 1024;
-const MiB = KiB * KiB;
+/** @template T @typedef {import('../../../lighthouse-core/report/html/renderer/i18n')<T>} I18n */
 
 class TreemapUtil {
   /**
    * @param {LH.Treemap.Node} node
-   * @param {(node: LH.Treemap.Node, path: string[]) => void} fn
+   * @param {(node: NodeWithElement, path: string[]) => void} fn
    * @param {string[]=} path
    */
   static walk(node, fn, path) {
@@ -123,22 +121,13 @@ class TreemapUtil {
   }
 
   /**
-   * @param {number} bytes
-   */
-  static formatBytes(bytes) {
-    if (bytes >= MiB) return (bytes / MiB).toFixed(2) + '\xa0MiB';
-    if (bytes >= KiB) return (bytes / KiB).toFixed(0) + '\xa0KiB';
-    return bytes + '\xa0B';
-  }
-
-  /**
    * @param {number} value
    * @param {string} unit
    */
   static format(value, unit) {
-    if (unit === 'bytes') return TreemapUtil.formatBytes(value);
-    if (unit === 'time') return `${value}\xa0ms`;
-    return `${value} ${unit}`;
+    if (unit === 'bytes') return this.i18n.formatBytes(value);
+    if (unit === 'time') return `${this.i18n.formatNumber(value)}\xa0ms`;
+    return `${this.i18n.formatNumber(value)}\xa0${unit}`;
   }
 
   /**
@@ -148,21 +137,23 @@ class TreemapUtil {
    * The hash function is stable and deterministic, so the same key->item mapping will be
    * produced given the same call order.
    * @template T
-   * @param {T[]} items
-   * @return {(key: string) => T|undefined}
+   * @param {T[]} originalItems
+   * @return {(key: string) => T}
    */
-  static stableHasher(items) {
-    // Clone.
-    items = [...items];
+  static stableHasher(originalItems) {
+    let items = [...originalItems];
 
     /** @type {Map<string, T>} */
     const assignedItems = new Map();
     return key => {
       // Key has already been assigned an item.
-      if (assignedItems.has(key)) return assignedItems.get(key);
+      const alreadyAssignedItem = assignedItems.get(key);
+      if (alreadyAssignedItem !== undefined) return alreadyAssignedItem;
 
       // Ran out of items.
-      if (items.length === 0) return;
+      if (items.length === 0) {
+        items = [...originalItems];
+      }
 
       // Select a random item using a stable hash.
       const hash = [...key].reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -200,13 +191,36 @@ TreemapUtil.COLOR_HUES = [
   65.5,
   45,
   35.8,
-  14.4,
   15.9,
-  0,
   199.5,
 ];
+
+/** @type {I18n<typeof TreemapUtil['UIStrings']>} */
+// @ts-expect-error: Is set in main.
+TreemapUtil.i18n = null;
+
+TreemapUtil.UIStrings = {
+  /** Label for a button that alternates between showing or hiding a table. */
+  toggleTableButtonLabel: 'Toggle Table',
+  /** Text for an option in a dropdown menu. When selected, the app shows information for all scripts that were found in a web page. */
+  allScriptsDropdownLabel: 'All Scripts',
+  /** Label for a table column where the values are URLs, JS module names, or arbitrary identifiers. For simplicity, just 'name' is used. */
+  tableColumnName: 'Name',
+  /** Label for column giving the size of a file in bytes. */
+  resourceBytesLabel: 'Resource Bytes',
+  /** Label for a value associated with how many bytes of a script are not executed. */
+  unusedBytesLabel: 'Unused Bytes',
+  /** Label for a column where the values represent how much of a file is used bytes vs unused bytes (coverage). */
+  coverageColumnName: 'Coverage',
+  /** Label for a button that shows everything (or rather, does not highlight any specific mode such as: unused bytes, duplicate bytes, etc). */
+  allLabel: 'All',
+  /** Label for a button that highlights information about duplicate modules (aka: files, javascript resources that were included twice by a web page). */
+  duplicateModulesLabel: 'Duplicate Modules',
+};
 
 // node export for testing.
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = TreemapUtil;
+} else {
+  self.TreemapUtil = TreemapUtil;
 }

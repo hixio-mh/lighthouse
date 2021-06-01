@@ -2588,14 +2588,18 @@ Array [
             "resourceBytes": 4247,
             "unusedBytes": 4247,
           },
+          Object {
+            "name": "(unmapped)",
+            "resourceBytes": 48,
+          },
         ],
         "name": "coursehero:///",
-        "resourceBytes": 977474,
+        "resourceBytes": 977522,
         "unusedBytes": 977474,
       },
     ],
     "name": "https://courshero.com/script1.js",
-    "resourceBytes": 977474,
+    "resourceBytes": 977522,
     "unusedBytes": 977474,
   },
   Object {
@@ -5184,20 +5188,24 @@ Array [
             "resourceBytes": 4247,
             "unusedBytes": 4247,
           },
+          Object {
+            "name": "(unmapped)",
+            "resourceBytes": 48,
+          },
         ],
         "name": "coursehero:///",
-        "resourceBytes": 977474,
+        "resourceBytes": 977522,
         "unusedBytes": 977474,
       },
     ],
     "name": "https://courshero.com/script2.js",
-    "resourceBytes": 977474,
+    "resourceBytes": 977522,
     "unusedBytes": 977474,
   },
 ]
 `;
 
-exports[`ScriptTreemapData audit squoosh fixture has nodes 3`] = `
+exports[`ScriptTreemapData audit squoosh fixture has nodes 4`] = `
 Array [
   Object {
     "children": Array [
@@ -5771,14 +5779,19 @@ Array [
             "unusedBytes": 281,
           },
         ],
-        "name": "/webpack:/.",
+        "name": "webpack:/.",
         "resourceBytes": 73687,
         "unusedBytes": 3066,
       },
+      Object {
+        "name": "(unmapped)",
+        "resourceBytes": 10061,
+        "unusedBytes": 3760,
+      },
     ],
     "name": "https://squoosh.app/main-app.js",
-    "resourceBytes": 73687,
-    "unusedBytes": 3066,
+    "resourceBytes": 83748,
+    "unusedBytes": 6826,
   },
   Object {
     "name": "https://sqoosh.app/no-map-or-usage.js",

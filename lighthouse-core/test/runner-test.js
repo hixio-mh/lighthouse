@@ -30,7 +30,7 @@ const i18n = require('../lib/i18n/i18n.js');
 describe('Runner', () => {
   const defaultGatherFn = opts => Runner._gatherArtifactsFromBrowser(
     opts.requestedUrl,
-    opts,
+    {...opts, computedCache: new Map()},
     null
   );
 
@@ -316,7 +316,7 @@ describe('Runner', () => {
       ],
     });
 
-    return Runner.run({}, {config}).then(results => {
+    return Runner.run({}, {config, computedCache: new Map()}).then(results => {
       const audits = results.lhr.audits;
       assert.equal(audits['user-timings'].displayValue, '2 user timings');
       assert.deepStrictEqual(audits['user-timings'].details.items.map(i => i.startTime),
@@ -555,7 +555,7 @@ describe('Runner', () => {
       ],
     });
 
-    return Runner.run({}, {config}).then(results => {
+    return Runner.run({}, {config, computedCache: new Map()}).then(results => {
       const audits = results.lhr.audits;
       assert.equal(audits['critical-request-chains'].displayValue, '5 chains found');
       assert.equal(audits['critical-request-chains'].details.longestChain.transferSize, 2468);
@@ -790,7 +790,7 @@ describe('Runner', () => {
 
       // And it bubbled up to the runtimeError.
       expect(lhr.runtimeError.code).toEqual(NO_FCP.code);
-      expect(lhr.runtimeError.message).toBeDisplayString(/did not paint any content.*\(NO_FCP\)/);
+      expect(lhr.runtimeError.message).toMatch(/did not paint any content.*\(NO_FCP\)/);
     });
 
     it('includes a pageLoadError runtimeError over any gatherer runtimeErrors', async () => {
@@ -803,10 +803,10 @@ describe('Runner', () => {
 
       const gotoURL = jest.requireMock('../gather/driver/navigation.js').gotoURL;
       gotoURL.mockImplementation((_, url) => {
-        if (url.includes('blank')) return {finalUrl: '', timedOut: false};
+        if (url.includes('blank')) return {finalUrl: '', warnings: []};
         if (firstLoad) {
           firstLoad = false;
-          return {finalUrl: url, timedOut: false};
+          return {finalUrl: url, warnings: []};
         } else {
           throw new LHError(LHError.errors.PAGE_HUNG);
         }
@@ -821,7 +821,7 @@ describe('Runner', () => {
 
       // But top-level runtimeError is the pageLoadError.
       expect(lhr.runtimeError.code).toEqual(LHError.errors.PAGE_HUNG.code);
-      expect(lhr.runtimeError.message).toBeDisplayString(/because the page stopped responding/);
+      expect(lhr.runtimeError.message).toMatch(/because the page stopped responding/);
     });
   });
 
