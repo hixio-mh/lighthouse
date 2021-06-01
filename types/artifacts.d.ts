@@ -49,10 +49,6 @@ declare global {
       fetchTime: string;
       /** A set of warnings about unexpected things encountered while loading and testing the page. */
       LighthouseRunWarnings: Array<string | IcuMessage>;
-      /** Device which Chrome is running on. */
-      HostFormFactor: 'desktop'|'mobile';
-      /** The user agent string of the version of Chrome used. */
-      HostUserAgent: string;
       /** The benchmark index that indicates rough device class. */
       BenchmarkIndex: number;
       /** An object containing information about the testing configuration used by Lighthouse. */
@@ -75,6 +71,10 @@ declare global {
      * The set of base artifacts that were replaced by standard gatherers in Fraggle Rock.
      */
     export interface LegacyBaseArtifacts {
+      /** Device which Chrome is running on. */
+      HostFormFactor: 'desktop'|'mobile';
+      /** The user agent string of the version of Chrome used. */
+      HostUserAgent: string;
       /** The user agent string that Lighthouse used to load the page. Set to the empty string if unknown. */
       NetworkUserAgent: string;
       /** Information on detected tech stacks (e.g. JS libraries) used by the page. */
@@ -117,7 +117,7 @@ declare global {
      * Artifacts provided by the default gatherers. Augment this interface when adding additional
      * gatherers. Changes to these artifacts are not considered a breaking Lighthouse change.
      */
-    export interface GathererArtifacts extends PublicGathererArtifacts {
+    export interface GathererArtifacts extends PublicGathererArtifacts,LegacyBaseArtifacts {
       /** The results of running the aXe accessibility tests on the page. */
       Accessibility: Artifacts.Accessibility;
       /** Array of all anchors on the page. */
