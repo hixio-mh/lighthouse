@@ -1,6 +1,5 @@
-Thanks to our new contributors 👽🐷🐰🐯🐻! 
-
- <a name="8.0.0"></a>
+<a name="8.0.0"></a>
+(TODO)
 # 8.0.0 (2021-06-01)
 [Full Changelog](https://github.com/GoogleChrome/lighthouse/compare/v7.5.0...v8.0.0)
 
@@ -9,7 +8,6 @@ We expect this release to ship in the DevTools of [Chrome XX](https://chromiumda
 
 ## Notable Changes
 ~~ TODO: Move notable changes here ~~
-
 
 ## Core
 
