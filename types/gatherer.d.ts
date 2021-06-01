@@ -45,9 +45,9 @@ declare global {
       /** The cached results of computed artifacts. */
       computedCache: Map<string, ArbitraryEqualityMap>;
       /** The set of available dependencies requested by the current gatherer. */
-      dependencies: TDependencies extends DefaultDependenciesKey ?
-        {} :
-        Pick<GathererArtifacts, Exclude<TDependencies, DefaultDependenciesKey>>;
+      dependencies: Pick<GathererArtifacts, Exclude<TDependencies, DefaultDependenciesKey>>;
+      /** The settings used for gathering. */
+      settings: Config.Settings;
     }
 
     export interface PassContext {
