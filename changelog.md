@@ -6,6 +6,7 @@ We expect this release to ship in the DevTools of [Chrome 93](https://chromiumda
 
 ## Notable changes
 * The **Performance Category** had a number of scoring changes to align with other performance tools and to better reflect the state of the web:
+  - TODO: decide on FAQ incorporation and either replace these with that or flesh these out
   - scoring: rebalance perf metric weightings ([#12577](https://github.com/GoogleChrome/lighthouse/pull/12577))
   - scoring: update TBT score curve ([#12576](https://github.com/GoogleChrome/lighthouse/pull/12576))
   - update cumulative-layout-shift ([#12554](https://github.com/GoogleChrome/lighthouse/pull/12554))
