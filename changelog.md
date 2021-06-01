@@ -1,71 +1,74 @@
 <a name="8.0.0"></a>
-(TODO)
 # 8.0.0 (2021-06-01)
 [Full Changelog](https://github.com/GoogleChrome/lighthouse/compare/v7.5.0...v8.0.0)
 
-~~ TODO: https://chromiumdash.appspot.com/schedule ~~
-We expect this release to ship in the DevTools of [Chrome XX](https://chromiumdash.appspot.com/schedule), and to PageSpeed Insights within 2 weeks.
+We expect this release to ship in the DevTools of [Chrome 93](https://chromiumdash.appspot.com/schedule), and to PageSpeed Insights within a day!
 
-## Notable Changes
-~~ TODO: Move notable changes here ~~
+## Notable changes
+* The **Performance Category** had a number of scoring changes to align with other performance tools and to better reflect the state of the web:
+  - scoring: rebalance perf metric weightings ([#12577](https://github.com/GoogleChrome/lighthouse/pull/12577))
+  - scoring: update TBT score curve ([#12576](https://github.com/GoogleChrome/lighthouse/pull/12576))
+  - update cumulative-layout-shift ([#12554](https://github.com/GoogleChrome/lighthouse/pull/12554))
+  - update FCP score curve ([#12556](https://github.com/GoogleChrome/lighthouse/pull/12556))
+* The report includes a new metric filter. Pick a metric to focus on the opportunities and diagnostics most relevant to improving just that metric:
 
-## Core
+  <img width="583" alt="the new metric filter in the lighthouse report" src="https://user-images.githubusercontent.com/316891/120384128-61de6500-c2eb-11eb-9d15-5b92981d897e.png">
+* The [Lighthouse Treemap](#treemap-release) is now available across all the major Lighthouse clients. If your site exposes source maps to Lighthouse, look for the "View Treemap" button to see a breakdown of your shipped JavaScript, filterable by size and coverage on load.
 
-* csp-xss: add severity text column to report ([#12551](https://github.com/GoogleChrome/lighthouse/pull/12551))
-* csp-xss: move to default config ([#12514](https://github.com/GoogleChrome/lighthouse/pull/12514))
-* fr: add settings to context ([#12574](https://github.com/GoogleChrome/lighthouse/pull/12574))
-* fr: fix usage of distributed conditional type ([#12565](https://github.com/GoogleChrome/lighthouse/pull/12565))
-* fr: convert inspector-issues gatherer ([#12530](https://github.com/GoogleChrome/lighthouse/pull/12530))
-* fr: convert tags-blocking-first-paint gatherer ([#12527](https://github.com/GoogleChrome/lighthouse/pull/12527))
-* fr: convert response-compression gatherer ([#12508](https://github.com/GoogleChrome/lighthouse/pull/12508))
-* fr: align navigation-runner with legacy gather-runner ([#12478](https://github.com/GoogleChrome/lighthouse/pull/12478))
-* image-elements: restructure for clarity ([#12568](https://github.com/GoogleChrome/lighthouse/pull/12568))
+## 🆕 New audits
+* The new audit `csp-xss` has been added to Best Practices to evaluate Content Security Policies and suggest ways of making them more secure. This can be a challenging audit to pass depending on hosting environment and page content, so for now it is unscored ([#12514](https://github.com/GoogleChrome/lighthouse/pull/12514), [#12551](https://github.com/GoogleChrome/lighthouse/pull/12551))
+
+## 🤖💥 Breaking changes for programmatic users
+* Legacy metrics `estimated-input-latency` and `first-cpu-idle` have been deprecated, unweighted, and hidden since Lighthouse 6. They have now been removed ([#12553](https://github.com/GoogleChrome/lighthouse/pull/12553))
+* Starting with Node 13, Node is built with `full-icu` by default, so the very large `intl` polyfill has been removed from the Lighthouse dependencies. See the [readme FAQ](https://github.com/GoogleChrome/lighthouse#how-do-i-get-localized-lighthouse-results-via-the-cli) if you're stuck with `small-icu` but need localization support ([#12426](https://github.com/GoogleChrome/lighthouse/pull/12426))
+* Long-time audit `uses-webp-images` has a new ID, `modern-image-formats`. WebP is now rather mainstream, and this frees the audit to start including details on other cutting-edge image formats in the future ([#12535](https://github.com/GoogleChrome/lighthouse/pull/12535))
+* The `image-elements` artifact has been restructured for clarity ([#12568](https://github.com/GoogleChrome/lighthouse/pull/12568))
+
+## 🧱 Core
+
 * navigate: only observe longtasks in PerfObserver ([#12545](https://github.com/GoogleChrome/lighthouse/pull/12545))
-* scoring: rebalance perf metric weightings ([#12577](https://github.com/GoogleChrome/lighthouse/pull/12577))
-* scoring: update TBT score curve ([#12576](https://github.com/GoogleChrome/lighthouse/pull/12576))
 * script-treemap-data: do not create nodes with blank names ([#12569](https://github.com/GoogleChrome/lighthouse/pull/12569))
-* remove estimated-input-latency and first-cpu-idle ([#12553](https://github.com/GoogleChrome/lighthouse/pull/12553))
-* update cumulative-layout-shift ([#12554](https://github.com/GoogleChrome/lighthouse/pull/12554))
-* fix main session OOPIF checks for devtools ([#12533](https://github.com/GoogleChrome/lighthouse/pull/12533))
-* update FCP score curve ([#12556](https://github.com/GoogleChrome/lighthouse/pull/12556))
-* rename uses-webp-images to modern-image-formats ([#12535](https://github.com/GoogleChrome/lighthouse/pull/12535))
 
-## Report
+## ⛏️👷 Fraggle Rock
 
-* fix addButton for provided container element ([#12590](https://github.com/GoogleChrome/lighthouse/pull/12590))
-* gzip treemap data ([#12519](https://github.com/GoogleChrome/lighthouse/pull/12519))
-* make metric filter accessible ([#12552](https://github.com/GoogleChrome/lighthouse/pull/12552))
-* add buttons to .lh-buttons flex container ([#12516](https://github.com/GoogleChrome/lighthouse/pull/12516))
+  Support for auditing user flows ([#11313](https://github.com/GoogleChrome/lighthouse/issues/11313))
+
+* add `settings` to gather context ([#12574](https://github.com/GoogleChrome/lighthouse/pull/12574))
+* fix usage of distributed conditional type ([#12565](https://github.com/GoogleChrome/lighthouse/pull/12565))
+* support `inspector-issues` gatherer ([#12530](https://github.com/GoogleChrome/lighthouse/pull/12530))
+* support `tags-blocking-first-paint` gatherer ([#12527](https://github.com/GoogleChrome/lighthouse/pull/12527))
+* support `response-compression` gatherer ([#12508](https://github.com/GoogleChrome/lighthouse/pull/12508))
+* align `navigation-runner` with legacy `gather-runner` ([#12478](https://github.com/GoogleChrome/lighthouse/pull/12478))
+
+## 📔 Report
+
+* improve accessibility of metric filter ([#12552](https://github.com/GoogleChrome/lighthouse/pull/12552))
+* treemap: add placeholder, gist and file upload features ([#12511](https://github.com/GoogleChrome/lighthouse/pull/12511))
+* treemap: support passing gzipped data in url ([#12509](https://github.com/GoogleChrome/lighthouse/pull/12509), [#12519](https://github.com/GoogleChrome/lighthouse/pull/12519))
 * viewer: fix gist icon ([#12505](https://github.com/GoogleChrome/lighthouse/pull/12505))
 
-## Deps
+## 👥 Clients
 
-* update lighthouse-plugin-publisher-ads to latest ([#12592](https://github.com/GoogleChrome/lighthouse/pull/12592))
-* axe-core: upgrade to 4.2.1 ([#12575](https://github.com/GoogleChrome/lighthouse/pull/12575))
-* remove intl polyfill ([#12426](https://github.com/GoogleChrome/lighthouse/pull/12426))
-* puppeteer: upgrade to 9.1.1 ([#12284](https://github.com/GoogleChrome/lighthouse/pull/12284))
-* update chrome-launcher to latest ([#12507](https://github.com/GoogleChrome/lighthouse/pull/12507))
+* fix main session OOPIF checks for devtools ([#12533](https://github.com/GoogleChrome/lighthouse/pull/12533))
+* render treemap button in all clients ([#12516](https://github.com/GoogleChrome/lighthouse/pull/12516), [#12570](https://github.com/GoogleChrome/lighthouse/pull/12570), [#12590](https://github.com/GoogleChrome/lighthouse/pull/12590))
+* backport proto formatting fixes ([#12566](https://github.com/GoogleChrome/lighthouse/pull/12566))
 
-## Clients
+## 🌍 i18n
 
-* psi: render treemap button ([#12570](https://github.com/GoogleChrome/lighthouse/pull/12570))
+* import new strings ([#12515](https://github.com/GoogleChrome/lighthouse/pull/12515), [#12591](https://github.com/GoogleChrome/lighthouse/pull/12591))
 
-## I18n
+## 📋 Tests
 
-* import ([#12591](https://github.com/GoogleChrome/lighthouse/pull/12591))
-* import ([#12515](https://github.com/GoogleChrome/lighthouse/pull/12515))
+* run unit tests on all active node versions in CI ([#12513](https://github.com/GoogleChrome/lighthouse/pull/12513))
+* sync devtools webtests ([#12578](https://github.com/GoogleChrome/lighthouse/pull/12578))
+* treemap: reduce `debug.json` ([#12555](https://github.com/GoogleChrome/lighthouse/pull/12555))
 
-## Tests
+## 🕸️ Deps
 
-* ci: run unit tests on all active node versions ([#12513](https://github.com/GoogleChrome/lighthouse/pull/12513))
-* devtools: sync webtests ([#12578](https://github.com/GoogleChrome/lighthouse/pull/12578))
-
-## Misc
-
-* proto: backport proto formatting fixes ([#12566](https://github.com/GoogleChrome/lighthouse/pull/12566))
-* treemap: reduce debug.json ([#12555](https://github.com/GoogleChrome/lighthouse/pull/12555))
-* treemap: add placeholder, gist and file upload features ([#12511](https://github.com/GoogleChrome/lighthouse/pull/12511))
-* treemap: support passing data in url ([#12509](https://github.com/GoogleChrome/lighthouse/pull/12509))
+* update `lighthouse-plugin-publisher-ads` to 1.4.1 ([#12592](https://github.com/GoogleChrome/lighthouse/pull/12592))
+* update `axe-core` to 4.2.1 ([#12575](https://github.com/GoogleChrome/lighthouse/pull/12575))
+* update `puppeteer` to 9.1.1 ([#12284](https://github.com/GoogleChrome/lighthouse/pull/12284))
+* update `chrome-launcher` to 0.14.0 ([#12507](https://github.com/GoogleChrome/lighthouse/pull/12507))
 
 <a name="7.5.0"></a>
 # 7.5.0 (2021-05-18)
@@ -81,6 +84,7 @@ Thanks to our new contributor 👽🐷🐰🐯🐻!
 
 ## Notable Changes
 
+<a name="treemap-release"></a>
 We are releasing the Lighthouse Treemap!
 
 ![image](https://user-images.githubusercontent.com/4071474/118602146-2d08d480-b767-11eb-9273-9a8de7000e67.png)
