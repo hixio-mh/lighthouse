@@ -5,7 +5,7 @@
 We expect this release to ship in the DevTools of [Chrome 93](https://chromiumdash.appspot.com/schedule), and to PageSpeed Insights within a day!
 
 ## Notable changes
-* The **Performance Category** had a number of scoring changes to align with other performance tools and to better reflect the state of the web. See the v8.0 FAQ below for more detail.
+* The **Performance Category** had a number of scoring changes to align with other performance tools and to better reflect the state of the web. See the [v8.0 FAQ below](#v80-faq) for more detail.
 
 * The report includes a new metric filter. Pick a metric to focus on the opportunities and diagnostics most relevant to improving just that metric:
 
