@@ -7,6 +7,9 @@ We expect this release to ship in the DevTools of [Chrome 93](https://chromiumda
 ## Notable changes
 * The **Performance Category** had a number of scoring changes to align with other performance tools and to better reflect the state of the web. See the [v8.0 Performance FAQ](https://github.com/GoogleChrome/lighthouse/blob/master/docs/v8-perf-faq.md) for more detail.
 
+  <img width="550" alt="the new metric weightings in the Lighthouse score calculator" src="https://user-images.githubusercontent.com/39191/120410971-de337100-c308-11eb-9fb6-368a33c0855e.png">
+
+
 * The report includes a new metric filter. Pick a metric to focus on the opportunities and diagnostics most relevant to improving just that metric:
 
   <img width="350" alt="the new metric filter in the lighthouse report" src="https://user-images.githubusercontent.com/316891/120384128-61de6500-c2eb-11eb-9d15-5b92981d897e.png">
@@ -84,23 +87,19 @@ Thanks to our new contributor 👽🐷🐰🐯🐻!
 <a name="treemap-release"></a>
 We are releasing the Lighthouse Treemap!
 
-![image](https://user-images.githubusercontent.com/4071474/118602146-2d08d480-b767-11eb-9273-9a8de7000e67.png)
+<a href="https://user-images.githubusercontent.com/4071474/118602146-2d08d480-b767-11eb-9273-9a8de7000e67.png"><img src="https://user-images.githubusercontent.com/4071474/118602146-2d08d480-b767-11eb-9273-9a8de7000e67.png" width="48%"></a> <a href="https://user-images.githubusercontent.com/4071474/118602240-4742b280-b767-11eb-9f6a-433788029a30.png"><img src="https://user-images.githubusercontent.com/4071474/118602240-4742b280-b767-11eb-9f6a-433788029a30.png" width="48%"></a>
 
 You may already be familiar with treemaps thanks to [webtreemap](https://github.com/evmar/webtreemap) (which we use!) or [source-map-explorer](https://github.com/danvk/source-map-explorer). With Lighthouse Treemap, you'll be able to view all the JavaScript bundles on your page easily from a Lighthouse report, in addition to some insights that may help reduce the amount of JavaScript on a page. The only requirement is that source maps are accessible (either publicly, or securely from the same computer that is running the Lighthouse audit).
 
-We even collect code coverage data from Chrome, and extrapolate the coverage of individual modules in a bundle:
-
-![image](https://user-images.githubusercontent.com/4071474/118602240-4742b280-b767-11eb-9f6a-433788029a30.png)
-
-Note: this only takes into account a cold-load: code only used after user interaction will be marked as unused. Stay tuned for a future release, which will enable you to configure user flows and capture even more accurate performance insights.
+We even collect **code coverage** data from Chrome, and extrapolate the coverage of individual modules in a bundle. Note: this only takes into account a cold-load: code only used after user interaction will be marked as unused. Stay tuned for a future release, which will enable you to configure user flows and capture even more accurate performance insights.
 
 If we detect a large module included by multiple bundles, we'll alert you of that too.
 
 You can access Lighthouse Treemap from the report:
 
-![image](https://user-images.githubusercontent.com/4071474/118600879-6e4cb480-b766-11eb-85f7-e8281006711b.png)
+<img src="https://user-images.githubusercontent.com/39191/120411450-aed13400-c309-11eb-9746-2f07d5efd276.png" width="350">
 
-Currently, only reports generated with the Lighthouse Node CLI will connect to the Lighthouse Treemap App. We are working on adding this functionality to Lighthouse in DevTools and PageSpeed Insights.
+Currently, only reports generated with the Lighthouse Node CLI will connect to the Lighthouse Treemap App. This functionality will be in  DevTools and PageSpeed Insights as of Lighthouse v8.0.
 
 ## Core
 
