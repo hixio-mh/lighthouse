@@ -64,9 +64,19 @@ class TreemapViewer {
     /** @type {WeakMap<LH.Treemap.Node, LH.Treemap.NodePath>} */
     this.nodeToPathMap = new WeakMap();
 
-    this.documentUrl = options.lhr.requestedUrl;
+    this.documentUrl = new URL(options.lhr.requestedUrl);
     this.el = el;
     this.getHueForD1NodeName = TreemapUtil.stableHasher(TreemapUtil.COLOR_HUES);
+
+    // These depth one node uses the network URL for the name, but we want
+    // to elide common parts of the URL so text fits better in the UI.
+    for (const node of this.depthOneNodesByGroup.scripts) {
+      const url = new URL(node.name);
+      node.name = TreemapUtil.elideUrl(url, this.documentUrl);
+      if (url.href === this.documentUrl.href) {
+        node.name += ' (inline)';
+      }
+    }
 
     /* eslint-disable no-unused-expressions */
     /** @type {LH.Treemap.Node} */
@@ -94,8 +104,8 @@ class TreemapViewer {
 
   createHeader() {
     const urlEl = TreemapUtil.find('a.lh-header--url');
-    urlEl.textContent = this.documentUrl;
-    urlEl.href = this.documentUrl;
+    urlEl.textContent = this.documentUrl.toString();
+    urlEl.href = this.documentUrl.toString();
 
     this.createBundleSelector();
   }
@@ -215,7 +225,7 @@ class TreemapViewer {
   wrapNodesInNewRootNode(nodes) {
     const children = [...nodes];
     return {
-      name: this.documentUrl,
+      name: this.documentUrl.toString(),
       resourceBytes: children.reduce((acc, cur) => cur.resourceBytes + acc, 0),
       unusedBytes: children.reduce((acc, cur) => (cur.unusedBytes || 0) + acc, 0),
       children,
@@ -432,11 +442,6 @@ class TreemapViewer {
         } else {
           name = path.join('/');
         }
-
-        // Elide the document URL.
-        if (name.startsWith(this.currentTreemapRoot.name)) {
-          name = name.replace(this.currentTreemapRoot.name, '//');
-        }
       }
 
       data.push({
@@ -468,7 +473,7 @@ class TreemapViewer {
       const dataRow = cell.getRow().getData();
       if (!dataRow.bundleNode) return '';
 
-      return `${dataRow.bundleNode.name} (bundle) ${dataRow.name}`;
+      return `${dataRow.bundleNode.name} ${dataRow.name}`;
     };
 
     /** @param {Tabulator.CellComponent} cell */
