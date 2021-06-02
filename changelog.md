@@ -21,7 +21,7 @@ We expect this release to ship in the DevTools of [Chrome 93](https://chromiumda
 
 ## 🤖💥 Breaking changes for programmatic users
 * Legacy metrics `estimated-input-latency` and `first-cpu-idle` have been deprecated, unweighted, and hidden since Lighthouse 6. They have now been removed ([#12553](https://github.com/GoogleChrome/lighthouse/pull/12553))
-* Starting with Node 13, Node is built with `full-icu` by default, so the very large `intl` polyfill has been removed from the Lighthouse dependencies. See the [readme FAQ](https://github.com/GoogleChrome/lighthouse#how-do-i-get-localized-lighthouse-results-via-the-cli) if you're stuck with `small-icu` but need localization support ([#12426](https://github.com/GoogleChrome/lighthouse/pull/12426))
+* Starting with Node 13, Node is built with `full-icu` by default, so the very large `intl` polyfill has been removed from Lighthouse's dependencies. See the [readme FAQ](https://github.com/GoogleChrome/lighthouse#how-do-i-get-localized-lighthouse-results-via-the-cli) if you're stuck with `small-icu` but need localization support ([#12426](https://github.com/GoogleChrome/lighthouse/pull/12426))
 * Long-time audit `uses-webp-images` has a new ID, `modern-image-formats`. WebP is now rather mainstream, and this frees the audit to start including details on other cutting-edge image formats in the future ([#12535](https://github.com/GoogleChrome/lighthouse/pull/12535))
 * The `image-elements` artifact has been restructured for clarity ([#12568](https://github.com/GoogleChrome/lighthouse/pull/12568))
 
@@ -44,7 +44,7 @@ We expect this release to ship in the DevTools of [Chrome 93](https://chromiumda
 ## 📔 Report
 
 * improve accessibility of metric filter ([#12552](https://github.com/GoogleChrome/lighthouse/pull/12552))
-* treemap: add placeholder, gist and file upload features ([#12511](https://github.com/GoogleChrome/lighthouse/pull/12511))
+* treemap: add placeholder, gist, and file upload features ([#12511](https://github.com/GoogleChrome/lighthouse/pull/12511))
 * treemap: support passing gzipped data in url ([#12509](https://github.com/GoogleChrome/lighthouse/pull/12509), [#12519](https://github.com/GoogleChrome/lighthouse/pull/12519))
 * viewer: fix gist icon ([#12505](https://github.com/GoogleChrome/lighthouse/pull/12505))
 
